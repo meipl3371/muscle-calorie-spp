@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>筋トレ記録＆消費カロリー計算アプリ (Pixel 8a 最適化版)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      padding-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    /* Android number input spin button removal */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020617;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased flex flex-col pb-20 sm:pb-8">
+
+  <!-- Header -->
+  <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30 pt-safe">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform">
+          <i class="fa-solid fa-dumbbell text-slate-950 text-xl font-black"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">MuscleCalorie</h1>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold flex items-center gap-1">
+              <i class="fa-brands fa-android text-[11px]"></i> Pixel 8a 最適化
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400">日付・時間・重量記録 & METsカロリー計算</p>
+        </div>
+      </div>
+
+      <!-- Desktop Nav Tabs (Hidden on mobile, bottom nav used instead) -->
+      <div class="hidden sm:flex items-center space-x-1 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+        <button id="navRecordBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-sm flex items-center gap-1.5">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <span>記録する</span>
+        </button>
+        <button id="navHistoryBtn" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>履歴・分析</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container (Optimized width for Pixel 8a 412px viewport) -->
+  <main class="max-w-3xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-6 flex-1">
+
+    <!-- TAB 1: RECORD WORKOUT -->
+    <section id="tabRecord" class="space-y-4 sm:space-y-6">
+
+      <!-- Live Stats Metric Grid -->
+      <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+        <!-- Calories -->
+        <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-[11px] font-semibold text-slate-300">消費カロリー</span>
+            <i class="fa-solid fa-fire text-amber-500 text-sm"></i>
+          </div>
+          <div class="flex items-baseline space-x-1">
+            <span id="statCalories" class="text-2xl font-black text-amber-400 font-mono">0</span>
+            <span class="text-xs text-slate-400 font-medium">kcal</span>
+          </div>
+          <div id="statCalorieEquiv" class="text-[10px] text-slate-400 truncate mt-1">おにぎり 0.0 個分</div>
+        </div>
+
+        <!-- Duration -->
+        <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-[11px] font-semibold text-slate-300">筋トレ時間</span>
+            <i class="fa-solid fa-stopwatch text-emerald-400 text-sm"></i>
+          </div>
+          <div class="flex items-baseline space-x-1">
+            <span id="statDuration" class="text-2xl font-black text-emerald-400 font-mono">0</span>
+            <span class="text-xs text-slate-400 font-medium">分</span>
+          </div>
+          <div class="text-[10px] text-slate-400 truncate mt-1">タイマー連携中</div>
+        </div>
+
+        <!-- Volume -->
+        <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-[11px] font-semibold text-slate-300">総挙上重量</span>
+            <i class="fa-solid fa-weight-hanging text-cyan-400 text-sm"></i>
+          </div>
+          <div class="flex items-baseline space-x-1">
+            <span id="statVolume" class="text-2xl font-black text-cyan-400 font-mono">0</span>
+            <span class="text-xs text-slate-400 font-medium">kg</span>
+          </div>
+          <div class="text-[10px] text-slate-400 truncate mt-1">重量×回数の総計</div>
+        </div>
+
+        <!-- Sets & Exercises -->
+        <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between text-slate-400 mb-1">
+            <span class="text-[11px] font-semibold text-slate-300">総セット数</span>
+            <i class="fa-solid fa-layer-group text-violet-400 text-sm"></i>
+          </div>
+          <div class="flex items-baseline space-x-1">
+            <span id="statSets" class="text-2xl font-black text-violet-400 font-mono">0</span>
+            <span class="text-xs text-slate-400 font-medium">Sets</span>
+          </div>
+          <div id="statExerciseCount" class="text-[10px] text-slate-400 truncate mt-1">0 種目</div>
+        </div>
+      </div>
+
+      <!-- Date, Time & Stopwatch Card -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <h2 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-regular fa-calendar-days text-emerald-400"></i>
+            日時・所要時間 & タイマー
+          </h2>
+          <span class="text-[10px] text-slate-400">Pixel 8a Gboardテンキー対応</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+          <!-- Date -->
+          <div class="sm:col-span-5 space-y-1">
+            <label for="workoutDate" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span>年月日 (日付)</span>
+              <button type="button" id="setTodayBtn" class="text-[10px] text-emerald-400 hover:underline">今日にする</button>
+            </label>
+            <input type="date" id="workoutDate" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-medium">
+          </div>
+
+          <!-- Duration Manual Input -->
+          <div class="sm:col-span-3 space-y-1">
+            <label for="workoutDuration" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span>所要時間 (分)</span>
+            </label>
+            <div class="relative flex items-center">
+              <input type="number" id="workoutDuration" min="1" max="999" value="45" inputmode="numeric" pattern="[0-9]*" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono font-bold text-base">
+              <span class="absolute right-3 text-xs text-slate-400 font-medium">分</span>
+            </div>
+          </div>
+
+          <!-- Quick Duration Buttons (Pixel 8a thumb friendly) -->
+          <div class="sm:col-span-4 flex items-end">
+            <div class="grid grid-cols-4 gap-1.5 w-full">
+              <button type="button" class="quick-duration-btn py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-lg text-xs font-semibold transition-all" data-mins="30">30分</button>
+              <button type="button" class="quick-duration-btn py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-lg text-xs font-semibold transition-all" data-mins="45">45分</button>
+              <button type="button" class="quick-duration-btn py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-lg text-xs font-semibold transition-all" data-mins="60">60分</button>
+              <button type="button" class="quick-duration-btn py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 rounded-lg text-xs font-semibold transition-all" data-mins="90">90分</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Built-in Stopwatch Bar -->
+        <div class="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2.5">
+          <div class="flex items-center space-x-3">
+            <div class="w-2.5 h-2.5 rounded-full bg-slate-600" id="timerIndicator"></div>
+            <div>
+              <div class="text-[10px] text-slate-400 font-medium">リアルタイム計測タイマー</div>
+              <div id="stopwatchDisplay" class="text-xl font-mono font-bold text-white tracking-widest">00:00:00</div>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <button type="button" id="timerToggleBtn" class="px-4 py-2 bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-play"></i>
+              <span>開始</span>
+            </button>
+            <button type="button" id="timerResetBtn" class="p-2 text-slate-400 hover:text-white bg-slate-900 border border-slate-800 rounded-xl text-xs active:scale-95 transition-all" title="リセット">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+            <button type="button" id="timerApplyBtn" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold transition-all" title="所要時間に反映">
+              時間に反映
+            </button>
+          </div>
+        </div>
+
+        <!-- Weight & METs row -->
+        <div class="pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <!-- Weight -->
+          <div class="space-y-1">
+            <label for="userWeight" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span>あなたの体重 (kg)</span>
+              <span class="text-[10px] text-emerald-400">自動記憶</span>
+            </label>
+            <div class="relative flex items-center">
+              <input type="number" id="userWeight" min="30" max="250" step="0.5" value="65" inputmode="decimal" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 font-mono font-bold text-base">
+              <span class="absolute right-3 text-xs text-slate-400 font-medium">kg</span>
+            </div>
+          </div>
+
+          <!-- Intensity Select -->
+          <div class="space-y-1">
+            <label for="workoutIntensity" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span>運動強度 (METs)</span>
+              <span id="metsBadge" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-bold">5.0 METs</span>
+            </label>
+            <select id="workoutIntensity" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+              <option value="3.5">軽度 (自重・ストレッチ・軽いマシン ~ 3.5 METs)</option>
+              <option value="5.0" selected>中等度 (一般的なウェイトトレーニング ~ 5.0 METs)</option>
+              <option value="6.0">やや高強度 (ダンベル・バーベル追い込み ~ 6.0 METs)</option>
+              <option value="7.5">高強度 (高重量・ハードサーキット ~ 7.5 METs)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Calorie Formula Preview -->
+        <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+          <div class="flex items-center gap-1.5">
+            <i class="fa-solid fa-calculator text-emerald-400"></i>
+            <span>式: METs × 体重(kg) × 時間(h) × 1.05</span>
+          </div>
+          <div id="calcFormulaPreview" class="text-emerald-400 font-mono font-semibold">
+            5.0 × 65kg × 0.75h × 1.05 ≒ 256 kcal
+          </div>
+        </div>
+      </div>
+
+      <!-- Workout Exercises Card -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h2 class="text-xs sm:text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-dumbbell text-emerald-400"></i>
+              種目・セット記録
+            </h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">重量(kg)と回数(reps)をクイック入力できます</p>
+          </div>
+          <button type="button" id="addExerciseBtn" class="px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-slate-950 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-emerald-500/20">
+            <i class="fa-solid fa-plus text-xs"></i>
+            <span>種目を追加</span>
+          </button>
+        </div>
+
+        <!-- Exercises List Container -->
+        <div id="exerciseCardsContainer" class="space-y-4">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyExercisesState" class="hidden text-center py-8 border-2 border-dashed border-slate-800/80 rounded-xl">
+          <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-2">
+            <i class="fa-solid fa-dumbbell text-xl"></i>
+          </div>
+          <p class="text-xs font-semibold text-slate-300">種目がまだ追加されていません</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">「種目を追加」ボタンを押してメニューを開始しましょう</p>
+        </div>
+      </div>
+
+      <!-- Workout Memo -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-2">
+        <label for="workoutMemo" class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-regular fa-note-sticky text-emerald-400"></i>
+          ワークアウトメモ・コンディション (任意)
+        </label>
+        <textarea id="workoutMemo" rows="2" placeholder="例: ベンチプレスの肩甲骨の寄せを意識できた。次回は+2.5kgに挑戦する。" class="w-full bg-slate-950 border border-slate-700/80 rounded-xl p-3 text-xs sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"></textarea>
+      </div>
+
+      <!-- Main Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+        <button type="button" id="resetCurrentFormBtn" class="w-full sm:w-auto px-4 py-3 bg-slate-800/80 active:bg-slate-700 text-slate-300 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>入力をリセット</span>
+        </button>
+
+        <button type="button" id="saveWorkoutBtn" class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 active:from-emerald-400 active:to-teal-300 text-slate-950 rounded-xl text-sm font-black shadow-lg shadow-emerald-500/25 active:scale-98 transition-all flex items-center justify-center gap-2">
+          <i class="fa-solid fa-floppy-disk text-base"></i>
+          <span>本日の筋トレを保存する</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- TAB 2: HISTORY & ANALYTICS -->
+    <section id="tabHistory" class="space-y-4 sm:space-y-6 hidden">
+      <!-- Cumulative Metrics -->
+      <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5">
+          <span class="text-[11px] text-slate-400 font-semibold">通算記録回数</span>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="histTotalWorkouts" class="text-2xl font-black text-white font-mono">0</span>
+            <span class="text-xs text-slate-400">回</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5">
+          <span class="text-[11px] text-slate-400 font-semibold">総消費カロリー</span>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="histTotalCalories" class="text-2xl font-black text-amber-400 font-mono">0</span>
+            <span class="text-xs text-slate-400">kcal</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5">
+          <span class="text-[11px] text-slate-400 font-semibold">総筋トレ時間</span>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="histTotalDuration" class="text-2xl font-black text-emerald-400 font-mono">0</span>
+            <span class="text-xs text-slate-400">分</span>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5">
+          <span class="text-[11px] text-slate-400 font-semibold">累計挙上重量</span>
+          <div class="flex items-baseline space-x-1 mt-1">
+            <span id="histTotalVolume" class="text-2xl font-black text-cyan-400 font-mono">0</span>
+            <span class="text-xs text-slate-400">kg</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search & Data Backup Tools -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="relative w-full sm:w-72">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-xs"></i>
+          <input type="text" id="historySearchInput" placeholder="日付や種目名で検索..." class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
+          <button type="button" id="exportDataBtn" class="flex-1 sm:flex-none px-3.5 py-2 bg-slate-800 active:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5" title="JSONエクスポート">
+            <i class="fa-solid fa-file-export"></i>
+            <span>バックアップ</span>
+          </button>
+          <label class="flex-1 sm:flex-none px-3.5 py-2 bg-slate-800 active:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer" title="JSON復元">
+            <i class="fa-solid fa-file-import"></i>
+            <span>復元</span>
+            <input type="file" id="importDataInput" accept=".json" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- History List -->
+      <div id="historyListContainer" class="space-y-3.5">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyHistoryState" class="hidden text-center py-12 bg-slate-900/50 border border-dashed border-slate-800 rounded-2xl">
+        <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-500 mb-2.5">
+          <i class="fa-solid fa-folder-open text-xl"></i>
+        </div>
+        <p class="text-sm font-bold text-slate-300">筋トレの記録がまだありません</p>
+        <p class="text-xs text-slate-500 mt-1 max-w-xs mx-auto">「記録する」タブからトレーニングを保存すると、ここに一覧が表示されます。</p>
+        <button type="button" id="emptyGoToRecordBtn" class="mt-4 px-4 py-2 bg-emerald-500 active:bg-emerald-600 text-slate-950 rounded-xl text-xs font-bold transition-all">
+          今すぐ記録を作成
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation (Tailored for Pixel 8a 1-hand thumb use) -->
+  <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800/90 pb-safe">
+    <div class="grid grid-cols-2 max-w-md mx-auto">
+      <button type="button" id="mNavRecordBtn" class="py-2.5 flex flex-col items-center justify-center text-emerald-400 font-bold transition-all">
+        <i class="fa-solid fa-dumbbell text-lg mb-0.5"></i>
+        <span class="text-[10px]">記録・タイマー</span>
+      </button>
+      <button type="button" id="mNavHistoryBtn" class="py-2.5 flex flex-col items-center justify-center text-slate-400 font-medium transition-all">
+        <i class="fa-solid fa-clock-rotate-left text-lg mb-0.5"></i>
+        <span class="text-[10px]">履歴・分析</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Delete Confirmation Modal (In-page modal, avoiding window.confirm) -->
+  <div id="deleteModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <div class="w-12 h-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center text-xl mx-auto">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div class="text-center space-y-1">
+        <h3 class="text-base font-bold text-white">記録を削除しますか？</h3>
+        <p class="text-xs text-slate-400">この操作は取り消せません。該当のワークアウト履歴が消去されます。</p>
+      </div>
+      <div class="flex items-center space-x-3 pt-2">
+        <button type="button" id="cancelDeleteBtn" class="flex-1 py-2.5 bg-slate-800 active:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all">
+          キャンセル
+        </button>
+        <button type="button" id="confirmDeleteBtn" class="flex-1 py-2.5 bg-rose-600 active:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all">
+          削除する
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 z-50 transition-all duration-300 pointer-events-none flex items-center gap-2 px-4 py-2.5 rounded-full shadow-2xl border text-xs font-semibold backdrop-blur-md">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-sm"></i>
+    <span id="toastMessage">完了しました</span>
+  </div>
+
+  <!-- Application Logic -->
+  <script>
+    // Preset Exercise Options
+    const PRESET_EXERCISES = [
+      { category: '胸 (Chest)', items: ['ベンチプレス', 'ダンベルプレス', 'インクラインダンベルプレス', 'ダンベルフライ', '腕立て伏せ', 'ディップス'] },
+      { category: '背中 (Back)', items: ['デッドリフト', '懸垂 (チンニング)', 'ラットプルダウン', 'ベントオーバーロウ', 'ワンハンドダンベルロウ'] },
+      { category: '脚・臀部 (Legs)', items: ['バックスクワット', 'レッグプレス', 'ブルガリアンスクワット', 'レッグエクステンション', 'レッグカール'] },
+      { category: '肩 (Shoulders)', items: ['ショルダープレス', 'サイドレイズ', 'フロントレイズ', 'リアレイズ'] },
+      { category: '腕 (Arms)', items: ['ダンベルアームカール', 'ハンマーカール', 'スカルクラッシャー', 'ケーブルプッシュダウン'] },
+      { category: '腹筋・体幹 (Core)', items: ['クランチ', 'レッグレイズ', 'プランク', 'アブローラー'] }
+    ];
+
+    // State
+    let currentExercises = [];
+    let workoutHistory = [];
+    let editingId = null;
+    let itemToDeleteId = null;
+
+    // Stopwatch State
+    let timerInterval = null;
+    let timerSeconds = 0;
+    let isTimerRunning = false;
+
+    // Haptic Feedback for Pixel 8a
+    function triggerHaptic(duration = 20) {
+      if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+        try {
+          window.navigator.vibrate(duration);
+        } catch (e) {}
+      }
+    }
+
+    // DOM Elements
+    const navRecordBtn = document.getElementById('navRecordBtn');
+    const navHistoryBtn = document.getElementById('navHistoryBtn');
+    const mNavRecordBtn = document.getElementById('mNavRecordBtn');
+    const mNavHistoryBtn = document.getElementById('mNavHistoryBtn');
+    const tabRecord = document.getElementById('tabRecord');
+    const tabHistory = document.getElementById('tabHistory');
+
+    const workoutDateInput = document.getElementById('workoutDate');
+    const setTodayBtn = document.getElementById('setTodayBtn');
+    const workoutDurationInput = document.getElementById('workoutDuration');
+    const userWeightInput = document.getElementById('userWeight');
+    const workoutIntensitySelect = document.getElementById('workoutIntensity');
+    const workoutMemoInput = document.getElementById('workoutMemo');
+    const metsBadge = document.getElementById('metsBadge');
+    const calcFormulaPreview = document.getElementById('calcFormulaPreview');
+
+    const statCalories = document.getElementById('statCalories');
+    const statCalorieEquiv = document.getElementById('statCalorieEquiv');
+    const statDuration = document.getElementById('statDuration');
+    const statVolume = document.getElementById('statVolume');
+    const statSets = document.getElementById('statSets');
+    const statExerciseCount = document.getElementById('statExerciseCount');
+
+    const stopwatchDisplay = document.getElementById('stopwatchDisplay');
+    const timerToggleBtn = document.getElementById('timerToggleBtn');
+    const timerResetBtn = document.getElementById('timerResetBtn');
+    const timerApplyBtn = document.getElementById('timerApplyBtn');
+    const timerIndicator = document.getElementById('timerIndicator');
+
+    const addExerciseBtn = document.getElementById('addExerciseBtn');
+    const exerciseCardsContainer = document.getElementById('exerciseCardsContainer');
+    const emptyExercisesState = document.getElementById('emptyExercisesState');
+
+    const saveWorkoutBtn = document.getElementById('saveWorkoutBtn');
+    const resetCurrentFormBtn = document.getElementById('resetCurrentFormBtn');
+
+    // History elements
+    const historyListContainer = document.getElementById('historyListContainer');
+    const emptyHistoryState = document.getElementById('emptyHistoryState');
+    const historySearchInput = document.getElementById('historySearchInput');
+    const histTotalWorkouts = document.getElementById('histTotalWorkouts');
+    const histTotalCalories = document.getElementById('histTotalCalories');
+    const histTotalDuration = document.getElementById('histTotalDuration');
+    const histTotalVolume = document.getElementById('histTotalVolume');
+    const emptyGoToRecordBtn = document.getElementById('emptyGoToRecordBtn');
+    const exportDataBtn = document.getElementById('exportDataBtn');
+    const importDataInput = document.getElementById('importDataInput');
+
+    // Modal elements
+    const deleteModal = document.getElementById('deleteModal');
+    const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+    const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+    // Toast
+    const toast = document.getElementById('toast');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+
+    // --- Toast & Utility ---
+    function showToast(msg, type = 'success') {
+      triggerHaptic(30);
+      toastMessage.textContent = msg;
+      if (type === 'success') {
+        toast.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 translate-y-0 opacity-100 z-50 transition-all duration-300 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full shadow-2xl border border-emerald-500/40 bg-slate-900/95 text-emerald-400 text-xs font-bold';
+        toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+      } else if (type === 'error') {
+        toast.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 translate-y-0 opacity-100 z-50 transition-all duration-300 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full shadow-2xl border border-rose-500/40 bg-slate-900/95 text-rose-400 text-xs font-bold';
+        toastIcon.className = 'fa-solid fa-circle-xmark text-rose-400';
+      } else {
+        toast.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 translate-y-0 opacity-100 z-50 transition-all duration-300 pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-full shadow-2xl border border-slate-700 bg-slate-900/95 text-slate-200 text-xs font-bold';
+        toastIcon.className = 'fa-solid fa-circle-info text-slate-300';
+      }
+
+      setTimeout(() => {
+        toast.classList.replace('translate-y-0', '-translate-y-20');
+        toast.classList.replace('opacity-100', 'opacity-0');
+        toast.classList.replace('pointer-events-auto', 'pointer-events-none');
+      }, 2500);
+    }
+
+    function formatNumber(num) {
+      return Number(num).toLocaleString('ja-JP');
+    }
+
+    function getTodayDateString() {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    // --- Storage ---
+    function loadSavedData() {
+      try {
+        const storedWeight = localStorage.getItem('mc_user_weight');
+        if (storedWeight) {
+          userWeightInput.value = storedWeight;
+        }
+        const storedHistory = localStorage.getItem('mc_workout_history');
+        if (storedHistory) {
+          workoutHistory = JSON.parse(storedHistory);
+        }
+      } catch (e) {
+        console.warn('LocalStorage access warning:', e);
+      }
+    }
+
+    function saveHistoryToStorage() {
+      try {
+        localStorage.setItem('mc_workout_history', JSON.stringify(workoutHistory));
+        localStorage.setItem('mc_user_weight', userWeightInput.value);
+      } catch (e) {
+        console.warn('LocalStorage save warning:', e);
+      }
+    }
+
+    // --- Calorie Calculation (METs method) ---
+    // Formula: Calories (kcal) = METs × Weight (kg) × Duration (h) × 1.05
+    function calculateCalories(durationMin, weightKg, mets) {
+      if (!durationMin || durationMin <= 0 || !weightKg || weightKg <= 0) return 0;
+      const hours = durationMin / 60;
+      const kcal = mets * weightKg * hours * 1.05;
+      return Math.round(kcal);
+    }
+
+    function updateLiveStats() {
+      const duration = parseFloat(workoutDurationInput.value) || 0;
+      const weight = parseFloat(userWeightInput.value) || 65;
+      const mets = parseFloat(workoutIntensitySelect.value) || 5.0;
+
+      metsBadge.textContent = `${mets.toFixed(1)} METs`;
+
+      const calories = calculateCalories(duration, weight, mets);
+      statCalories.textContent = formatNumber(calories);
+      statDuration.textContent = duration;
+
+      const onigiri = (calories / 160).toFixed(1);
+      const banana = (calories / 86).toFixed(1);
+      statCalorieEquiv.textContent = `おにぎり 約${onigiri}個分 (バナナ 約${banana}本)`;
+
+      const hours = (duration / 60).toFixed(2);
+      calcFormulaPreview.textContent = `${mets.toFixed(1)} × ${weight}kg × ${hours}h × 1.05 ≒ ${calories} kcal`;
+
+      let totalVol = 0;
+      let totalSetCount = 0;
+
+      currentExercises.forEach(ex => {
+        if (ex.sets && Array.isArray(ex.sets)) {
+          totalSetCount += ex.sets.length;
+          ex.sets.forEach(s => {
+            const w = parseFloat(s.weight) || 0;
+            const r = parseInt(s.reps, 10) || 0;
+            totalVol += (w * r);
+          });
+        }
+      });
+
+      statVolume.textContent = formatNumber(Math.round(totalVol));
+      statSets.textContent = totalSetCount;
+      statExerciseCount.textContent = `${currentExercises.length} 種目`;
+    }
+
+    // --- Stopwatch Logic ---
+    function updateStopwatchText() {
+      const hrs = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
+      const mins = String(Math.floor((timerSeconds % 3600) / 60)).padStart(2, '0');
+      const secs = String(timerSeconds % 60).padStart(2, '0');
+      stopwatchDisplay.textContent = `${hrs}:${mins}:${secs}`;
+    }
+
+    function toggleTimer() {
+      triggerHaptic(25);
+      if (isTimerRunning) {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        timerToggleBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>再開</span>';
+        timerToggleBtn.className = 'px-4 py-2 bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5';
+        timerIndicator.className = 'w-2.5 h-2.5 rounded-full bg-amber-400';
+      } else {
+        isTimerRunning = true;
+        timerToggleBtn.innerHTML = '<i class="fa-solid fa-pause"></i><span>一時停止</span>';
+        timerToggleBtn.className = 'px-4 py-2 bg-amber-500/20 active:bg-amber-500/30 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5';
+        timerIndicator.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
+
+        timerInterval = setInterval(() => {
+          timerSeconds++;
+          updateStopwatchText();
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      triggerHaptic(20);
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+      timerSeconds = 0;
+      updateStopwatchText();
+      timerToggleBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>開始</span>';
+      timerToggleBtn.className = 'px-4 py-2 bg-emerald-500/20 active:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5';
+      timerIndicator.className = 'w-2.5 h-2.5 rounded-full bg-slate-600';
+    }
+
+    function applyTimerToDuration() {
+      triggerHaptic(25);
+      const mins = Math.max(1, Math.round(timerSeconds / 60));
+      workoutDurationInput.value = mins;
+      updateLiveStats();
+      showToast(`タイマーの時間 (${mins}分) を所要時間に反映しました`);
+    }
+
+    // --- Exercise Models & Rendering ---
+    function createNewExerciseObject(name = 'ベンチプレス') {
+      return {
+        id: 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        name: name,
+        sets: [
+          { weight: 60, reps: 10 },
+          { weight: 60, reps: 10 },
+          { weight: 60, reps: 8 }
+        ]
+      };
+    }
+
+    function renderExercises() {
+      exerciseCardsContainer.innerHTML = '';
+      if (currentExercises.length === 0) {
+        emptyExercisesState.classList.remove('hidden');
+      } else {
+        emptyExercisesState.classList.add('hidden');
+      }
+
+      currentExercises.forEach((ex, exIndex) => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-950/90 border border-slate-800 rounded-2xl p-3.5 sm:p-4 transition-all shadow-sm space-y-3';
+        card.dataset.id = ex.id;
+
+        let exVol = 0;
+        ex.sets.forEach(s => {
+          exVol += (parseFloat(s.weight) || 0) * (parseInt(s.reps, 10) || 0);
+        });
+
+        let selectOptionsHtml = '';
+        PRESET_EXERCISES.forEach(group => {
+          selectOptionsHtml += `<optgroup label="${group.category}">`;
+          group.items.forEach(item => {
+            const isSel = item === ex.name ? 'selected' : '';
+            selectOptionsHtml += `<option value="${item}" ${isSel}>${item}</option>`;
+          });
+          selectOptionsHtml += `</optgroup>`;
+        });
+        selectOptionsHtml += `<option value="__custom__">自由入力 (カスタム)...</option>`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+            <div class="flex items-center space-x-2 flex-1 min-w-0">
+              <span class="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xs font-bold border border-emerald-500/20 shrink-0">
+                ${exIndex + 1}
+              </span>
+              <div class="flex-1 flex items-center gap-2 min-w-0">
+                <select class="exercise-name-select w-full bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-100 focus:outline-none focus:border-emerald-500 truncate">
+                  ${selectOptionsHtml}
+                </select>
+                <input type="text" class="exercise-custom-input hidden flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500" placeholder="種目名を入力..." value="${ex.name}">
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2 shrink-0">
+              <span class="text-[11px] text-slate-400 hidden sm:inline">
+                Vol: <strong class="text-cyan-400 font-mono">${formatNumber(Math.round(exVol))}</strong>kg
+              </span>
+              <button type="button" class="delete-exercise-btn text-slate-500 hover:text-rose-400 p-1.5 rounded-lg active:scale-95 transition-colors" title="種目削除">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sets Table with Pixel 8a Stepper Controls -->
+          <div class="space-y-2">
+            <div class="grid grid-cols-12 gap-1.5 text-[11px] font-semibold text-slate-400 px-1">
+              <div class="col-span-2 text-center">Set</div>
+              <div class="col-span-5 text-center">重量 (kg)</div>
+              <div class="col-span-4 text-center">回数 (reps)</div>
+              <div class="col-span-1 text-center"></div>
+            </div>
+
+            <div class="sets-container space-y-2">
+              ${ex.sets.map((set, setIndex) => `
+                <div class="set-row bg-slate-900/80 p-2 rounded-xl border border-slate-800/60 flex items-center justify-between gap-1.5" data-set-index="${setIndex}">
+                  <!-- Set # -->
+                  <div class="w-8 text-center text-xs font-bold text-slate-300">
+                    #${setIndex + 1}
+                  </div>
+
+                  <!-- Weight with quick steppers for mobile -->
+                  <div class="flex-1 flex items-center space-x-1 min-w-0">
+                    <button type="button" class="step-btn step-w-minus px-1.5 py-1 bg-slate-800 active:bg-slate-700 text-slate-300 rounded-md text-[10px] font-bold shrink-0">-2.5</button>
+                    <input type="number" step="0.5" min="0" max="999" value="${set.weight}" inputmode="decimal" class="set-weight-input w-full bg-slate-950 border border-slate-700/80 rounded-lg py-1.5 px-1 text-xs text-center font-mono font-bold text-slate-100 focus:outline-none focus:border-emerald-500">
+                    <button type="button" class="step-btn step-w-plus px-1.5 py-1 bg-slate-800 active:bg-slate-700 text-slate-300 rounded-md text-[10px] font-bold shrink-0">+2.5</button>
+                  </div>
+
+                  <!-- Reps with quick steppers -->
+                  <div class="w-24 sm:w-28 flex items-center space-x-1 shrink-0">
+                    <button type="button" class="step-btn step-r-minus px-1.5 py-1 bg-slate-800 active:bg-slate-700 text-slate-300 rounded-md text-[10px] font-bold shrink-0">-1</button>
+                    <input type="number" step="1" min="1" max="999" value="${set.reps}" inputmode="numeric" pattern="[0-9]*" class="set-reps-input w-full bg-slate-950 border border-slate-700/80 rounded-lg py-1.5 px-1 text-xs text-center font-mono font-bold text-slate-100 focus:outline-none focus:border-emerald-500">
+                    <button type="button" class="step-btn step-r-plus px-1.5 py-1 bg-slate-800 active:bg-slate-700 text-slate-300 rounded-md text-[10px] font-bold shrink-0">+1</button>
+                  </div>
+
+                  <!-- Delete Set -->
+                  <div class="w-7 text-center shrink-0">
+                    <button type="button" class="delete-set-btn text-slate-500 hover:text-rose-400 p-1 active:scale-95 transition-colors" title="セット削除">
+                      <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <!-- Add Set Button -->
+            <button type="button" class="add-set-btn w-full py-2 mt-1 border border-dashed border-slate-700/80 hover:border-emerald-500/50 rounded-xl text-xs font-semibold text-slate-300 hover:text-emerald-400 bg-slate-900/40 active:bg-slate-800/80 transition-all flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-plus text-xs"></i>
+              <span>セットを追加</span>
+            </button>
+          </div>
+        `;
+
+        // Card bindings
+        const select = card.querySelector('.exercise-name-select');
+        const customInput = card.querySelector('.exercise-custom-input');
+        const deleteExBtn = card.querySelector('.delete-exercise-btn');
+        const addSetBtn = card.querySelector('.add-set-btn');
+
+        let isPreset = false;
+        PRESET_EXERCISES.forEach(g => {
+          if (g.items.includes(ex.name)) isPreset = true;
+        });
+        if (!isPreset && ex.name) {
+          select.value = '__custom__';
+          customInput.classList.remove('hidden');
+        }
+
+        select.addEventListener('change', (e) => {
+          triggerHaptic(15);
+          if (e.target.value === '__custom__') {
+            customInput.classList.remove('hidden');
+            customInput.focus();
+            ex.name = customInput.value || 'オリジナル種目';
+          } else {
+            customInput.classList.add('hidden');
+            ex.name = e.target.value;
+          }
+          renderExercises();
+          updateLiveStats();
+        });
+
+        customInput.addEventListener('input', (e) => {
+          ex.name = e.target.value;
+        });
+
+        deleteExBtn.addEventListener('click', () => {
+          triggerHaptic(20);
+          currentExercises.splice(exIndex, 1);
+          renderExercises();
+          updateLiveStats();
+        });
+
+        addSetBtn.addEventListener('click', () => {
+          triggerHaptic(20);
+          const lastSet = ex.sets[ex.sets.length - 1];
+          const newWeight = lastSet ? lastSet.weight : 50;
+          const newReps = lastSet ? lastSet.reps : 10;
+          ex.sets.push({ weight: newWeight, reps: newReps });
+          renderExercises();
+          updateLiveStats();
+        });
+
+        // Set inputs & quick steppers
+        const setRows = card.querySelectorAll('.set-row');
+        setRows.forEach(row => {
+          const sIdx = parseInt(row.dataset.setIndex, 10);
+          const weightInp = row.querySelector('.set-weight-input');
+          const repsInp = row.querySelector('.set-reps-input');
+          const delSetBtn = row.querySelector('.delete-set-btn');
+
+          const wMinus = row.querySelector('.step-w-minus');
+          const wPlus = row.querySelector('.step-w-plus');
+          const rMinus = row.querySelector('.step-r-minus');
+          const rPlus = row.querySelector('.step-r-plus');
+
+          // Steppers
+          wMinus.addEventListener('click', () => {
+            triggerHaptic(15);
+            let cur = parseFloat(weightInp.value) || 0;
+            cur = Math.max(0, cur - 2.5);
+            weightInp.value = cur;
+            ex.sets[sIdx].weight = cur;
+            updateLiveStats();
+          });
+          wPlus.addEventListener('click', () => {
+            triggerHaptic(15);
+            let cur = parseFloat(weightInp.value) || 0;
+            cur = cur + 2.5;
+            weightInp.value = cur;
+            ex.sets[sIdx].weight = cur;
+            updateLiveStats();
+          });
+          rMinus.addEventListener('click', () => {
+            triggerHaptic(15);
+            let cur = parseInt(repsInp.value, 10) || 0;
+            cur = Math.max(1, cur - 1);
+            repsInp.value = cur;
+            ex.sets[sIdx].reps = cur;
+            updateLiveStats();
+          });
+          rPlus.addEventListener('click', () => {
+            triggerHaptic(15);
+            let cur = parseInt(repsInp.value, 10) || 0;
+            cur = cur + 1;
+            repsInp.value = cur;
+            ex.sets[sIdx].reps = cur;
+            updateLiveStats();
+          });
+
+          weightInp.addEventListener('input', (e) => {
+            ex.sets[sIdx].weight = parseFloat(e.target.value) || 0;
+            updateLiveStats();
+          });
+
+          repsInp.addEventListener('input', (e) => {
+            ex.sets[sIdx].reps = parseInt(e.target.value, 10) || 0;
+            updateLiveStats();
+          });
+
+          delSetBtn.addEventListener('click', () => {
+            triggerHaptic(20);
+            if (ex.sets.length <= 1) {
+              showToast('各種目には最低1セット必要です', 'info');
+              return;
+            }
+            ex.sets.splice(sIdx, 1);
+            renderExercises();
+            updateLiveStats();
+          });
+        });
+
+        exerciseCardsContainer.appendChild(card);
+      });
+
+      updateLiveStats();
+    }
+
+    // --- Save / Clear Form ---
+    function resetForm() {
+      editingId = null;
+      workoutDateInput.value = getTodayDateString();
+      workoutDurationInput.value = 45;
+      workoutIntensitySelect.value = '5.0';
+      workoutMemoInput.value = '';
+      currentExercises = [
+        createNewExerciseObject('ベンチプレス'),
+        createNewExerciseObject('バックスクワット')
+      ];
+      resetTimer();
+      renderExercises();
+      updateLiveStats();
+      saveWorkoutBtn.innerHTML = '<i class="fa-solid fa-floppy-disk text-base"></i><span>本日の筋トレを保存する</span>';
+    }
+
+    function saveCurrentWorkout() {
+      triggerHaptic(40);
+      const date = workoutDateInput.value;
+      if (!date) {
+        showToast('日付を入力してください', 'error');
+        return;
+      }
+      const duration = parseInt(workoutDurationInput.value, 10);
+      if (!duration || duration <= 0) {
+        showToast('所要時間を正しく入力してください', 'error');
+        return;
+      }
+      const weight = parseFloat(userWeightInput.value) || 65;
+      const mets = parseFloat(workoutIntensitySelect.value) || 5.0;
+      const calories = calculateCalories(duration, weight, mets);
+
+      let totalVol = 0;
+      let totalSets = 0;
+      currentExercises.forEach(ex => {
+        totalSets += ex.sets.length;
+        ex.sets.forEach(s => {
+          totalVol += (parseFloat(s.weight) || 0) * (parseInt(s.reps, 10) || 0);
+        });
+      });
+
+      const workoutRecord = {
+        id: editingId || ('wo_' + Date.now()),
+        date: date,
+        duration: duration,
+        weight: weight,
+        mets: mets,
+        calories: calories,
+        totalVolume: Math.round(totalVol),
+        totalSets: totalSets,
+        memo: workoutMemoInput.value.trim(),
+        exercises: JSON.parse(JSON.stringify(currentExercises)),
+        updatedAt: new Date().toISOString()
+      };
+
+      if (editingId) {
+        const idx = workoutHistory.findIndex(w => w.id === editingId);
+        if (idx !== -1) {
+          workoutHistory[idx] = workoutRecord;
+          showToast('ワークアウトを更新しました！');
+        }
+      } else {
+        workoutHistory.unshift(workoutRecord);
+        showToast('筋トレ記録を保存しました！');
+      }
+
+      saveHistoryToStorage();
+      resetForm();
+      switchTab('history');
+      renderHistoryList();
+    }
+
+    // --- History View Rendering ---
+    function renderHistoryList() {
+      historyListContainer.innerHTML = '';
+      const filter = historySearchInput.value.toLowerCase().trim();
+
+      const filtered = workoutHistory.filter(w => {
+        if (!filter) return true;
+        if (w.date.includes(filter)) return true;
+        if (w.memo && w.memo.toLowerCase().includes(filter)) return true;
+        return w.exercises.some(e => e.name.toLowerCase().includes(filter));
+      });
+
+      histTotalWorkouts.textContent = formatNumber(workoutHistory.length);
+      const totalKcal = workoutHistory.reduce((sum, w) => sum + (w.calories || 0), 0);
+      const totalTime = workoutHistory.reduce((sum, w) => sum + (w.duration || 0), 0);
+      const totalVol = workoutHistory.reduce((sum, w) => sum + (w.totalVolume || 0), 0);
+
+      histTotalCalories.textContent = formatNumber(totalKcal);
+      histTotalDuration.textContent = formatNumber(totalTime);
+      histTotalVolume.textContent = formatNumber(totalVol);
+
+      if (filtered.length === 0) {
+        emptyHistoryState.classList.remove('hidden');
+        return;
+      } else {
+        emptyHistoryState.classList.add('hidden');
+      }
+
+      filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      filtered.forEach(record => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3.5 hover:border-slate-700/80 transition-all';
+        card.dataset.id = record.id;
+
+        const exerciseNames = record.exercises.map(e => e.name).join(' / ');
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-emerald-400 font-bold text-xs shrink-0">
+                <i class="fa-regular fa-calendar"></i>
+              </div>
+              <div>
+                <div class="text-sm font-bold text-white flex items-center gap-2">
+                  <span>${record.date}</span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">
+                    ${record.duration}分
+                  </span>
+                </div>
+                <div class="text-[11px] text-slate-400 truncate max-w-[210px] sm:max-w-md mt-0.5">
+                  ${exerciseNames || '種目記録なし'}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-1.5 shrink-0">
+              <button type="button" class="edit-record-btn px-2.5 py-1.5 bg-slate-800 active:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-all">
+                <i class="fa-solid fa-pen text-[10px] mr-1"></i>編集
+              </button>
+              <button type="button" class="delete-record-btn p-1.5 text-slate-500 hover:text-rose-400 rounded-lg active:scale-95 transition-all" title="削除">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800/50 text-center">
+            <div>
+              <span class="text-[9px] text-slate-400">推定カロリー</span>
+              <div class="text-xs font-bold text-amber-400 font-mono">${formatNumber(record.calories)} <span class="text-[9px]">kcal</span></div>
+            </div>
+            <div>
+              <span class="text-[9px] text-slate-400">総挙上重量</span>
+              <div class="text-xs font-bold text-cyan-400 font-mono">${formatNumber(record.totalVolume)} <span class="text-[9px]">kg</span></div>
+            </div>
+            <div>
+              <span class="text-[9px] text-slate-400">運動強度</span>
+              <div class="text-xs font-bold text-emerald-400 font-mono">${record.mets} <span class="text-[9px]">METs</span></div>
+            </div>
+          </div>
+
+          <details class="group">
+            <summary class="cursor-pointer text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center justify-between select-none py-1">
+              <span>詳細なセット内容 (${record.exercises.length} 種目)</span>
+              <i class="fa-solid fa-chevron-down text-[10px] transition-transform group-open:rotate-180"></i>
+            </summary>
+            <div class="mt-2.5 space-y-2 pt-2 border-t border-slate-800/60">
+              ${record.exercises.map((ex, i) => `
+                <div class="bg-slate-950/80 p-2 rounded-lg border border-slate-800/40 space-y-1">
+                  <div class="flex items-center justify-between text-xs font-bold text-slate-300">
+                    <span>${i + 1}. ${ex.name}</span>
+                    <span class="text-[10px] text-slate-400 font-mono font-normal">
+                      ${ex.sets.map(s => `${s.weight}k×${s.reps}`).join(' / ')}
+                    </span>
+                  </div>
+                </div>
+              `).join('')}
+              ${record.memo ? `
+                <div class="text-[11px] text-slate-400 bg-slate-950/40 p-2 rounded-lg border border-slate-800/40">
+                  <span class="font-bold text-slate-300 mr-1">メモ:</span> ${record.memo}
+                </div>
+              ` : ''}
+            </div>
+          </details>
+        `;
+
+        const editBtn = card.querySelector('.edit-record-btn');
+        const deleteBtn = card.querySelector('.delete-record-btn');
+
+        editBtn.addEventListener('click', () => {
+          triggerHaptic(20);
+          loadRecordIntoForm(record);
+        });
+
+        deleteBtn.addEventListener('click', () => {
+          triggerHaptic(20);
+          openDeleteModal(record.id);
+        });
+
+        historyListContainer.appendChild(card);
+      });
+    }
+
+    function loadRecordIntoForm(record) {
+      editingId = record.id;
+      workoutDateInput.value = record.date;
+      workoutDurationInput.value = record.duration;
+      userWeightInput.value = record.weight || 65;
+      workoutIntensitySelect.value = String(record.mets || 5.0);
+      workoutMemoInput.value = record.memo || '';
+      currentExercises = JSON.parse(JSON.stringify(record.exercises || []));
+
+      saveWorkoutBtn.innerHTML = '<i class="fa-solid fa-check text-base"></i><span>変更を保存する</span>';
+      switchTab('record');
+      renderExercises();
+      updateLiveStats();
+      showToast('編集モードに読み込みました', 'info');
+    }
+
+    // --- Delete Modal Handlers ---
+    function openDeleteModal(id) {
+      itemToDeleteId = id;
+      deleteModal.classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+      itemToDeleteId = null;
+      deleteModal.classList.add('hidden');
+    }
+
+    cancelDeleteBtn.addEventListener('click', closeDeleteModal);
+    confirmDeleteBtn.addEventListener('click', () => {
+      triggerHaptic(35);
+      if (itemToDeleteId) {
+        workoutHistory = workoutHistory.filter(w => w.id !== itemToDeleteId);
+        saveHistoryToStorage();
+        closeDeleteModal();
+        renderHistoryList();
+        showToast('記録を削除しました', 'info');
+      }
+    });
+
+    // --- Tab Navigation (Sync Desktop & Mobile Nav) ---
+    function switchTab(tab) {
+      triggerHaptic(20);
+      if (tab === 'record') {
+        tabRecord.classList.remove('hidden');
+        tabHistory.classList.add('hidden');
+        // Desktop
+        navRecordBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-sm flex items-center gap-1.5';
+        navHistoryBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5';
+        // Mobile Bottom Nav
+        mNavRecordBtn.className = 'py-2.5 flex flex-col items-center justify-center text-emerald-400 font-bold transition-all';
+        mNavHistoryBtn.className = 'py-2.5 flex flex-col items-center justify-center text-slate-400 font-medium transition-all';
+      } else {
+        tabRecord.classList.add('hidden');
+        tabHistory.classList.remove('hidden');
+        // Desktop
+        navHistoryBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-emerald-500 text-slate-950 shadow-sm flex items-center gap-1.5';
+        navRecordBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-white hover:bg-slate-700/50 flex items-center gap-1.5';
+        // Mobile Bottom Nav
+        mNavHistoryBtn.className = 'py-2.5 flex flex-col items-center justify-center text-emerald-400 font-bold transition-all';
+        mNavRecordBtn.className = 'py-2.5 flex flex-col items-center justify-center text-slate-400 font-medium transition-all';
+        renderHistoryList();
+      }
+    }
+
+    navRecordBtn.addEventListener('click', () => switchTab('record'));
+    navHistoryBtn.addEventListener('click', () => switchTab('history'));
+    mNavRecordBtn.addEventListener('click', () => switchTab('record'));
+    mNavHistoryBtn.addEventListener('click', () => switchTab('history'));
+    emptyGoToRecordBtn.addEventListener('click', () => switchTab('record'));
+
+    // Quick Duration Buttons
+    document.querySelectorAll('.quick-duration-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        triggerHaptic(20);
+        workoutDurationInput.value = e.currentTarget.dataset.mins;
+        updateLiveStats();
+      });
+    });
+
+    setTodayBtn.addEventListener('click', () => {
+      triggerHaptic(15);
+      workoutDateInput.value = getTodayDateString();
+      showToast('本日の日付をセットしました');
+    });
+
+    // Inputs & Event Handlers
+    workoutDurationInput.addEventListener('input', updateLiveStats);
+    userWeightInput.addEventListener('input', updateLiveStats);
+    workoutIntensitySelect.addEventListener('change', updateLiveStats);
+
+    addExerciseBtn.addEventListener('click', () => {
+      triggerHaptic(25);
+      currentExercises.push(createNewExerciseObject('ベンチプレス'));
+      renderExercises();
+      showToast('種目を追加しました');
+    });
+
+    resetCurrentFormBtn.addEventListener('click', () => {
+      triggerHaptic(20);
+      resetForm();
+      showToast('入力をリセットしました', 'info');
+    });
+
+    saveWorkoutBtn.addEventListener('click', saveCurrentWorkout);
+
+    // Timer buttons
+    timerToggleBtn.addEventListener('click', toggleTimer);
+    timerResetBtn.addEventListener('click', resetTimer);
+    timerApplyBtn.addEventListener('click', applyTimerToDuration);
+
+    // Search filter
+    historySearchInput.addEventListener('input', renderHistoryList);
+
+    // Export / Import
+    exportDataBtn.addEventListener('click', () => {
+      triggerHaptic(20);
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(workoutHistory, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `pixel8a_workout_backup_${getTodayDateString()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('バックアップファイルを保存しました');
+    });
+
+    importDataInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (Array.isArray(parsed)) {
+            workoutHistory = parsed;
+            saveHistoryToStorage();
+            renderHistoryList();
+            showToast('データを正常に復元しました！');
+          } else {
+            showToast('形式が正しくありません', 'error');
+          }
+        } catch (err) {
+          showToast('JSONの解析に失敗しました', 'error');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    // --- Init ---
+    function init() {
+      loadSavedData();
+      workoutDateInput.value = getTodayDateString();
+      currentExercises = [
+        createNewExerciseObject('ベンチプレス'),
+        createNewExerciseObject('バックスクワット')
+      ];
+      renderExercises();
+      updateLiveStats();
+    }
+
+    init();
+  </script>
+</body>
+</html>
